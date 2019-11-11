@@ -101,16 +101,19 @@ contract EventTickets {
             - emit the appropriate event
     */
     function buyTickets(uint numberTickets) public payable {
-        require(myEvent.isOpen == true);
+        require(myEvent.isOpen == true, "Event closed");
+        require(msg.value >= numberTickets * TICKET_PRICE, "Not sufficient amount"); 
+        require(numberTickets <= (myEvent.totalTickets - myEvent.sales), "No sufficient tickets");
+
         uint totalToPay = numberTickets * TICKET_PRICE; 
-        require(msg.value > totalToPay); 
-        require(numberTickets <= (myEvent.totalTickets - myEvent.sales));
 
         myEvent.buyers[msg.sender] += numberTickets; 
         myEvent.sales += numberTickets;
 
-        if(msg.value > totalToPay) {
-            msg.sender.transfer(msg.value - totalToPay);
+        uint refund = msg.value - totalToPay;
+
+        if(refund > 0) {
+            msg.sender.transfer(refund);
         }
 
         emit LogBuyTickets(msg.sender, numberTickets);
@@ -126,14 +129,15 @@ contract EventTickets {
             - Emit the appropriate event.
     */
     function getRefund() public {
-        uint numberTickets = getBuyerTicketCount(msg.sender);
-        uint totalToRefund = numberTickets * TICKET_PRICE;
+        require(myEvent.buyers[msg.sender] > 0, "Buyer not have tickets");
 
-        require(numberTickets > 0);
+        uint numberTickets = myEvent.buyers[msg.sender];
+        uint totalToRefund = numberTickets * TICKET_PRICE;
         myEvent.buyers[msg.sender] = 0;
         myEvent.sales -= numberTickets;
 
         msg.sender.transfer(totalToRefund);
+        emit LogGetRefund(msg.sender, numberTickets);
     }
 
     /*
@@ -145,17 +149,15 @@ contract EventTickets {
             - transfer the contract balance to the owner
             - emit the appropriate event
     */
-    function endSale() public onlyOwner {
+    function endSale() public onlyOwner{
         myEvent.isOpen = false; 
-        //uint totalToTransfer = myEvent.sales * TICKET_PRICE;
         owner.transfer(address(this).balance);
-
         emit LogEndSale(owner, address(this).balance);
     }
 
-      function() external payable {
-          revert();
-    }
+      //function() external payable {
+          //revert();
+    //}
 }
 
 
